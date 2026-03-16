@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Bot — Chat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- Background particles -->
+  <div class="bg-particles" id="bgParticles"></div>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">✦</span>
+        <span class="logo-text">AI<span class="accent">Bot</span></span>
+      </div>
+      <div class="header-right">
+        <div class="status-badge" id="statusBadge">
+          <span class="status-dot" id="statusDot"></span>
+          <span id="statusText">Configurazione…</span>
+        </div>
+        <button class="key-btn" id="keyBtn" onclick="openModal()" title="Cambia API Key">🔑</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Chat Container -->
+  <main class="main">
+    <div class="chat-wrapper">
+
+      <!-- Chat Messages -->
+      <div class="chat-messages" id="chatMessages">
+        <!-- Welcome message -->
+        <div class="message bot-message" id="welcomeMsg">
+          <div class="avatar bot-avatar">✦</div>
+          <div class="bubble-wrap">
+            <div class="bubble bot-bubble">
+              <p>Ciao! Sono il tuo assistente AI. 👋</p>
+              <p>Puoi chiedermi qualsiasi cosa — sono qui per aiutarti. Come posso esserti utile oggi?</p>
+            </div>
+            <span class="timestamp">Adesso</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Typing Indicator -->
+      <div class="typing-indicator hidden" id="typingIndicator">
+        <div class="avatar bot-avatar small">✦</div>
+        <div class="typing-bubble">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </div>
+
+      <!-- Quick suggestions -->
+      <div class="suggestions" id="suggestions">
+        <button class="suggestion-btn" onclick="sendSuggestion(this)">Cosa puoi fare?</button>
+        <button class="suggestion-btn" onclick="sendSuggestion(this)">Raccontami una barzelletta</button>
+        <button class="suggestion-btn" onclick="sendSuggestion(this)">Dammi un consiglio</button>
+        <button class="suggestion-btn" onclick="sendSuggestion(this)">Cos'è l'intelligenza artificiale?</button>
+      </div>
+
+      <!-- Input Area -->
+      <div class="input-area">
+        <div class="input-box">
+          <textarea
+            id="userInput"
+            class="user-input"
+            placeholder="Scrivi un messaggio…"
+            rows="1"
+            maxlength="2000"
+            autocomplete="off"
+            spellcheck="true"
+          ></textarea>
+          <button class="send-btn" id="sendBtn" onclick="sendMessage()" aria-label="Invia messaggio">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+              <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z"/>
+            </svg>
+          </button>
+        </div>
+        <p class="input-hint">Premi <kbd>Enter</kbd> per inviare · <kbd>Shift+Enter</kbd> per andare a capo</p>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- API Key Modal -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+      <div class="modal-icon">🔑</div>
+      <h2 class="modal-title">Connetti l'AI</h2>
+      <p class="modal-desc">
+        Inserisci la tua <strong>API Key di Groq</strong> per attivare il motore AI.<br>
+        Groq è <strong>gratuita</strong> — usa <strong>LLaMA 3.3 70B</strong>, uno dei modelli più potenti al mondo.
+      </p>
+      <div class="modal-steps">
+        <a href="https://console.groq.com/keys" target="_blank" class="modal-link">
+          <span>1.</span> Vai su console.groq.com → crea account gratuito → copia la API Key
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5z"/><path d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0v-5z"/></svg>
+        </a>
+      </div>
+      <div class="modal-input-wrap">
+        <input type="password" id="apiKeyInput" class="modal-input" placeholder="gsk_xxxxxxxxxxxxxxxxxxxx" autocomplete="off" spellcheck="false" />
+        <button class="modal-eye" id="eyeBtn" onclick="toggleKeyVisibility()" title="Mostra/Nascondi">
+          <svg id="eyeIcon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/><path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/></svg>
+        </button>
+      </div>
+      <div class="modal-error hidden" id="modalError">❌ API Key non valida o errore di rete. Riprova.</div>
+      <button class="modal-btn" id="saveKeyBtn" onclick="saveApiKey()">
+        <span id="saveBtnText">⚡ Attiva AI</span>
+      </button>
+      <p class="modal-note">🔒 La chiave viene salvata solo nel tuo browser (localStorage) e non viene inviata a nessun server esterno tranne Groq.</p>
+    </div>
+  </div>
+
+  <script src="js/responses.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
