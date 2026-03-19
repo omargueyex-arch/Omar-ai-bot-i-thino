@@ -1,0 +1,386 @@
+import { useState, useRef, useEffect } from "react";
+
+const MODELS = [
+  { value: "claude-opus-4-5",          label: "Opus 4.5 — Max" },
+  { value: "claude-sonnet-4-5",        label: "Sonnet 4.5 — Balanced" },
+  { value: "claude-haiku-4-5-20251001",label: "Haiku 4.5 — Fast" },
+];
+
+const CHIPS = [
+  "Spiegami il machine learning",
+  "Scrivi un componente React",
+  "Traduci in inglese formale",
+  "Crea uno script Python",
+  "Spiega la blockchain",
+  "Racconta una storia breve",
+];
+
+/* ── FORMAT ── */
+function fmt(text) {
+  const parts = [];
+  const re = /```(\w*)\n?([\s\S]*?)```/g;
+  let last = 0, m;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) parts.push({ type: "text", content: text.slice(last, m.index) });
+    parts.push({ type: "code", content: m[2].trim(), lang: m[1] });
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) parts.push({ type: "text", content: text.slice(last) });
+  return parts;
+}
+
+function TextSegment({ content }) {
+  return (
+    <span>
+      {content.split("\n").map((line, i, arr) => (
+        <span key={i}>
+          {line.split(/\*\*(.*?)\*\*/g).map((s, j) =>
+            j % 2 === 1 ? <strong key={j}>{s}</strong> : s
+          )}
+          {i < arr.length - 1 && <br />}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function Bubble({ role, content, images }) {
+  const isUser = role === "user";
+  const parts = typeof content === "string" ? fmt(content) : [];
+  return (
+    <div style={{
+      padding: "12px 16px", borderRadius: 15, fontSize: 13.5, lineHeight: 1.78,
+      wordBreak: "break-word", maxWidth: "100%",
+      background: isUser ? "#0f2040" : "#0d1421",
+      border: `1px solid ${isUser ? "#1a3560" : "#1e2d45"}`,
+      borderTopLeftRadius: isUser ? 15 : 3,
+      borderTopRightRadius: isUser ? 3 : 15,
+      color: isUser ? "#c8d8f0" : "#e8eaf0",
+    }}>
+      {images && images.map((src, i) => (
+        <img key={i} src={src} style={{ maxWidth: "100%", maxHeight: 260, borderRadius: 9, marginBottom: 8, display: "block", border: "1px solid #1e2d45" }} />
+      ))}
+      {parts.map((p, i) =>
+        p.type === "code" ? (
+          <pre key={i} style={{ background: "#050810", border: "1px solid #1e2d45", borderRadius: 8, padding: "11px 13px", overflowX: "auto", margin: "9px 0", fontSize: 12, fontFamily: "monospace" }}>
+            <code style={{ color: "#fb923c" }}>{p.content}</code>
+          </pre>
+        ) : <TextSegment key={i} content={p.content} />
+      )}
+    </div>
+  );
+}
+
+function Avatar({ role }) {
+  return (
+    <div style={{
+      width: 32, height: 32, borderRadius: 9, flexShrink: 0, marginTop: 2,
+      display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15,
+      background: role === "ai" ? "#f97316" : "#151d2e",
+      border: role === "user" ? "1px solid #1e2d45" : "none",
+      boxShadow: role === "ai" ? "0 0 14px rgba(249,115,22,.3)" : "none",
+    }}>
+      {role === "ai" ? "⚡" : "🧑"}
+    </div>
+  );
+}
+
+function Dots() {
+  return (
+    <div style={{ display: "flex", gap: 11, alignItems: "flex-start" }}>
+      <Avatar role="ai" />
+      <div style={{ display: "flex", gap: 5, alignItems: "center", padding: "12px 16px", background: "#0d1421", border: "1px solid #1e2d45", borderRadius: 15, borderTopLeftRadius: 3 }}>
+        {[0, 150, 300].map(d => (
+          <div key={d} style={{ width: 6, height: 6, borderRadius: "50%", background: "#f97316", animation: `bounce .8s ${d}ms infinite` }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const G = `
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-thumb{background:#1e2d45;border-radius:3px;}
+textarea{scrollbar-width:none;}
+textarea::-webkit-scrollbar{display:none;}
+select option{background:#0d1119;}
+input[type=range]{accent-color:#f97316;cursor:pointer;}
+@keyframes bounce{0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-7px);opacity:1}}
+@keyframes msgIn{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes recPulse{0%,100%{box-shadow:0 0 0 0 rgba(244,63,94,.45)}50%{box-shadow:0 0 0 9px rgba(244,63,94,0)}}
+.chip:hover{border-color:#f97316!important;color:#f97316!important;background:#0d1421!important;}
+.ibtn:hover{border-color:#f97316!important;color:#e8eaf0!important;}
+.msg-row{animation:msgIn .28s ease;}
+`;
+
+export default function App() {
+  const [messages, setMessages]     = useState([]);
+  const [input, setInput]           = useState("");
+  const [model, setModel]           = useState("claude-sonnet-4-5");
+  const [loading, setLoading]       = useState(false);
+  const [sys, setSys]               = useState("");
+  const [sysOpen, setSysOpen]       = useState(false);
+  const [temp, setTemp]             = useState(0.7);
+  const [tokens, setTokens]         = useState(1000);
+  const [recording, setRecording]   = useState(false);
+  const [toast, setToast]           = useState("");
+  const [pendingImgs, setPendingImgs] = useState([]); // [{dataUrl, base64, mime}]
+  const [sbOpen, setSbOpen]         = useState(true);
+
+  const endRef  = useRef(null);
+  const taRef   = useRef(null);
+  const recRef  = useRef(null);
+  const fileRef = useRef(null);
+
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
+  useEffect(() => { if (toast) { const t = setTimeout(() => setToast(""), 3000); return () => clearTimeout(t); } }, [toast]);
+
+  /* ── IMAGE PICK ── */
+  function onFiles(e) {
+    [...e.target.files].forEach(file => {
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const dataUrl = ev.target.result;
+        setPendingImgs(p => [...p, { dataUrl, base64: dataUrl.split(",")[1], mime: file.type }]);
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = "";
+  }
+
+  /* ── SEND ── */
+  async function sendMessage(override) {
+    const text = override ?? input.trim();
+    if ((!text && pendingImgs.length === 0) || loading) return;
+
+    setInput("");
+    if (taRef.current) taRef.current.style.height = "auto";
+
+    // build content for API
+    let apiContent;
+    const displayImgs = pendingImgs.map(i => i.dataUrl);
+
+    if (pendingImgs.length > 0) {
+      apiContent = [
+        ...pendingImgs.map(img => ({
+          type: "image",
+          source: { type: "base64", media_type: img.mime, data: img.base64 }
+        })),
+        { type: "text", text: text || "Analizza questa immagine." }
+      ];
+    } else {
+      apiContent = text;
+    }
+
+    const userMsg = { role: "user", content: apiContent, _display: text, _imgs: displayImgs };
+    setPendingImgs([]);
+
+    const next = [...messages, userMsg];
+    setMessages(next);
+    setLoading(true);
+
+    try {
+      const apiMsgs = next.map(m => ({ role: m.role, content: m.content }));
+      const body = {
+        model,
+        max_tokens: tokens,
+        temperature: temp,
+        messages: apiMsgs,
+        ...(sys ? { system: sys } : {}),
+      };
+
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.error?.message || `Errore HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      const reply = data.content?.find(b => b.type === "text")?.text ?? "Nessuna risposta.";
+      setMessages([...next, { role: "assistant", content: reply }]);
+    } catch (e) {
+      setMessages([...next, { role: "assistant", content: `❌ ${e.message}` }]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleKey(e) {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  }
+
+  function autoResize(e) {
+    e.target.style.height = "auto";
+    e.target.style.height = Math.min(e.target.scrollHeight, 150) + "px";
+  }
+
+  /* ── MIC ── */
+  function toggleMic() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { setToast("❌ Microfono disponibile solo in Chrome/Edge"); return; }
+    if (recording) { recRef.current?.stop(); setRecording(false); return; }
+    const r = new SR();
+    r.lang = "it-IT"; r.continuous = false; r.interimResults = true;
+    recRef.current = r;
+    r.onresult = ev => {
+      let t = "";
+      for (let i = ev.resultIndex; i < ev.results.length; i++) t += ev.results[i][0].transcript;
+      setInput(t);
+    };
+    r.onend = () => setRecording(false);
+    r.onerror = () => { setRecording(false); setToast("❌ Errore microfono"); };
+    r.start(); setRecording(true); setToast("🎙 In ascolto...");
+  }
+
+  const canSend = (input.trim().length > 0 || pendingImgs.length > 0) && !loading;
+
+  return (
+    <div style={{ height: "100vh", display: "flex", background: "#07090f", color: "#e8eaf0", fontFamily: "'JetBrains Mono',monospace", overflow: "hidden" }}>
+      <style>{G}</style>
+
+      {/* ── SIDEBAR ── */}
+      {sbOpen && (
+        <div style={{ width: 260, flexShrink: 0, background: "#0d1119", borderRight: "1px solid #1e2d45", display: "flex", flexDirection: "column", zIndex: 20 }}>
+
+          {/* Logo */}
+          <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "18px 16px 14px", borderBottom: "1px solid #1e2d45" }}>
+            <div style={{ width: 36, height: 36, background: "#f97316", borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, boxShadow: "0 0 16px rgba(249,115,22,.3)", flexShrink: 0 }}>⚡</div>
+            <span style={{ fontFamily: "Syne,sans-serif", fontWeight: 800, fontSize: 19 }}>Claude<span style={{ color: "#f97316" }}>Chat</span></span>
+          </div>
+
+          {/* Model */}
+          <div style={{ padding: "12px 14px 4px", fontSize: 10, color: "#4e6080", letterSpacing: ".7px", textTransform: "uppercase" }}>Modello</div>
+          <div style={{ padding: "0 14px 12px", position: "relative" }}>
+            <select value={model} onChange={e => setModel(e.target.value)} style={{ width: "100%", appearance: "none", background: "#131a26", border: "1px solid #1e2d45", borderRadius: 9, color: "#e8eaf0", fontFamily: "JetBrains Mono,monospace", fontSize: 11, padding: "8px 26px 8px 11px", cursor: "pointer", outline: "none" }}>
+              {MODELS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+            <span style={{ position: "absolute", right: 22, top: "50%", transform: "translateY(-50%)", color: "#4e6080", pointerEvents: "none", fontSize: 11 }}>▾</span>
+          </div>
+
+          {/* Params */}
+          <div style={{ padding: "0 14px 4px", fontSize: 10, color: "#4e6080", letterSpacing: ".7px", textTransform: "uppercase" }}>Parametri</div>
+          <div style={{ padding: "4px 14px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+            {[
+              { label: "Temp", min: 0, max: 1, step: 0.05, val: temp, setVal: setTemp, fmt: v => v.toFixed(2) },
+              { label: "Tokens", min: 256, max: 4096, step: 256, val: tokens, setVal: setTokens, fmt: v => v },
+            ].map(p => (
+              <div key={p.label} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11, color: "#4e6080" }}>
+                <span style={{ minWidth: 40 }}>{p.label}</span>
+                <input type="range" min={p.min} max={p.max} step={p.step} value={p.val}
+                  onChange={e => p.setVal(p.label === "Temp" ? parseFloat(e.target.value) : parseInt(e.target.value))}
+                  style={{ flex: 1 }} />
+                <span style={{ color: "#e8eaf0", minWidth: 34, textAlign: "right" }}>{p.fmt(p.val)}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* System prompt */}
+          <div style={{ padding: "0 14px 4px", fontSize: 10, color: "#4e6080", letterSpacing: ".7px", textTransform: "uppercase" }}>System Prompt</div>
+          <div style={{ padding: "4px 14px 12px", flex: 1 }}>
+            <textarea value={sys} onChange={e => setSys(e.target.value)}
+              placeholder="Es: Rispondi sempre in italiano..."
+              style={{ width: "100%", background: "#131a26", border: "1px solid #1e2d45", borderRadius: 9, color: "#e8eaf0", fontFamily: "JetBrains Mono,monospace", fontSize: 11, padding: "9px 11px", resize: "none", outline: "none", minHeight: 80, maxHeight: 140 }} />
+          </div>
+
+          {/* New chat */}
+          <button onClick={() => setMessages([])} style={{ margin: "0 14px 16px", padding: 9, background: "#1a2336", border: "1px solid #1e2d45", borderRadius: 9, color: "#e8eaf0", fontFamily: "JetBrains Mono,monospace", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 7, transition: "all .2s" }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "#f97316"; e.currentTarget.style.color = "#f97316"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "#1e2d45"; e.currentTarget.style.color = "#e8eaf0"; }}>
+            ✦ &nbsp;Nuova Chat
+          </button>
+        </div>
+      )}
+
+      {/* ── MAIN ── */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+
+        {/* Topbar */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 16px", borderBottom: "1px solid #1e2d45", background: "rgba(7,9,15,.92)", backdropFilter: "blur(12px)", flexShrink: 0 }}>
+          <button className="ibtn" onClick={() => setSbOpen(v => !v)} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid #1e2d45", background: "#131a26", color: "#4e6080", cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", transition: "all .2s", flexShrink: 0 }}>☰</button>
+          <span style={{ fontFamily: "Syne,sans-serif", fontWeight: 800, fontSize: 16, flex: 1 }}>Claude<span style={{ color: "#f97316" }}>Chat</span></span>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px", background: "#131a26", border: "1px solid #1e2d45", borderRadius: 20, fontSize: 10, color: "#4e6080" }}>
+            <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#22d3a7", boxShadow: "0 0 6px #22d3a7", animation: "pulse 2s infinite" }} />
+            Online
+          </div>
+        </div>
+
+        {/* Messages */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "20px 18px", display: "flex", flexDirection: "column", gap: 16 }}>
+          {messages.length === 0 && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, gap: 14, color: "#4e6080", textAlign: "center", padding: "40px 20px" }}>
+              <div style={{ width: 60, height: 60, background: "#131a26", border: "1px solid #1e2d45", borderRadius: 16, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, boxShadow: "0 0 28px rgba(249,115,22,.18)" }}>⚡</div>
+              <div style={{ fontFamily: "Syne,sans-serif", fontSize: 21, fontWeight: 700, color: "#e8eaf0" }}>Ciao! Come posso aiutarti?</div>
+              <div style={{ fontSize: 12, lineHeight: 1.7, maxWidth: 320 }}>Scrivi, parla con il microfono 🎙 o allega un'immagine 🖼</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 7, justifyContent: "center", marginTop: 6 }}>
+                {CHIPS.map(c => (
+                  <button key={c} className="chip" onClick={() => sendMessage(c)}
+                    style={{ padding: "7px 13px", background: "#131a26", border: "1px solid #1e2d45", borderRadius: 20, fontSize: 11, cursor: "pointer", color: "#e8eaf0", fontFamily: "JetBrains Mono,monospace", transition: "all .2s" }}>{c}</button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {messages.map((msg, i) => (
+            <div key={i} className="msg-row" style={{ display: "flex", gap: 10, alignItems: "flex-start", flexDirection: msg.role === "user" ? "row-reverse" : "row", alignSelf: msg.role === "user" ? "flex-end" : "flex-start", maxWidth: msg.role === "user" ? "76%" : 820, width: msg.role === "user" ? "auto" : "100%" }}>
+              <Avatar role={msg.role === "user" ? "user" : "ai"} />
+              <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
+                <Bubble role={msg.role} content={typeof msg.content === "string" ? msg.content : (msg._display || "")} images={msg._imgs} />
+                <div style={{ fontSize: 10, color: "#4e6080", textAlign: msg.role === "user" ? "right" : "left", padding: "0 2px" }}>
+                  {new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {loading && <div className="msg-row"><Dots /></div>}
+          <div ref={endRef} />
+        </div>
+
+        {/* Input */}
+        <div style={{ padding: "12px 16px 15px", borderTop: "1px solid #1e2d45", background: "rgba(7,9,15,.96)", backdropFilter: "blur(12px)", flexShrink: 0 }}>
+
+          {/* Image previews */}
+          {pendingImgs.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+              {pendingImgs.map((img, i) => (
+                <div key={i} style={{ position: "relative" }}>
+                  <img src={img.dataUrl} style={{ width: 58, height: 58, objectFit: "cover", borderRadius: 8, border: "1px solid #1e2d45" }} />
+                  <button onClick={() => setPendingImgs(p => p.filter((_, j) => j !== i))}
+                    style={{ position: "absolute", top: -5, right: -5, width: 18, height: 18, borderRadius: "50%", background: "#f43f5e", border: "none", color: "#fff", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 8, background: "#0d1119", border: "1px solid #1e2d45", borderRadius: 14, padding: "9px 11px" }}
+            onFocus={e => e.currentTarget.style.borderColor = "#f97316"}
+            onBlur={e => e.currentTarget.style.borderColor = "#1e2d45"}>
+            <textarea ref={taRef} value={input}
+              onChange={e => { setInput(e.target.value); autoResize(e); }}
+              onKeyDown={handleKey}
+              placeholder="Scrivi un messaggio..." rows={1}
+              style={{ flex: 1, background: "none", border: "none", color: "#e8eaf0", fontFamily: "JetBrains Mono,monospace", fontSize: 13.5, resize: "none", outline: "none", maxHeight: 140, lineHeight: 1.65 }} />
+
+            <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
+              {/* Image btn */}
+              <button onClick={() => fileRef.current.click()} title="Allega immagine"
+                style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid #1e2d45", background: "#131a26", color: "#4e6080", cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", transition: "all .2s" }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = "#f97316"; e.currentTarget.style.color = "#e8eaf0"; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = "#1e2d45"; e.currentTarget.style.color = "#4e6080"; }}>🖼</button>
+              <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={onFiles} />
+
+              {/* Mic btn */}
+              <button onClick={toggleMic} title="Microfono"
+                style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid", 
