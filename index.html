@@ -1,0 +1,145 @@
+<!DOCTYPE html><html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Chat Groq</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #1e1e2f, #3a3a6a);
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }.container {
+  width: 95%;
+  max-width: 500px;
+  background: #2a2a40;
+  border-radius: 20px;
+  box-shadow: 0 0 20px rgba(0,0,0,0.5);
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  height: 90vh;
+}
+
+h2 {
+  text-align: center;
+}
+
+input {
+  padding: 10px;
+  border-radius: 10px;
+  border: none;
+  margin-bottom: 10px;
+}
+
+button {
+  padding: 10px;
+  border-radius: 10px;
+  border: none;
+  background: #6c5ce7;
+  color: white;
+  cursor: pointer;
+  margin: 5px 0;
+}
+
+.chat {
+  flex: 1;
+  overflow-y: auto;
+  margin: 10px 0;
+}
+
+.msg {
+  padding: 10px;
+  border-radius: 10px;
+  margin: 5px 0;
+}
+
+.user { background: #0984e3; }
+.bot { background: #00b894; }
+
+.row {
+  display: flex;
+  gap: 5px;
+}
+
+.row input {
+  flex: 1;
+}
+
+  </style>
+</head>
+<body><div class="container">
+  <h2>🤖 AI Groq Chat</h2>  <input type="password" id="apiKey" placeholder="Inserisci Groq API Key">
+  <button onclick="saveKey()">Salva Chiave</button>  <div class="chat" id="chat"></div>  <div class="row">
+    <input type="text" id="input" placeholder="Scrivi...">
+    <button onclick="sendMsg()">➤</button>
+    <button onclick="startMic()">🎤</button>
+  </div>
+</div><script>
+let apiKey = localStorage.getItem("groq_key") || "";
+if(apiKey) document.getElementById("apiKey").value = apiKey;
+
+function saveKey(){
+  apiKey = document.getElementById("apiKey").value;
+  localStorage.setItem("groq_key", apiKey);
+  alert("Chiave salvata!");
+}
+
+function addMsg(text, cls){
+  const div = document.createElement("div");
+  div.className = "msg " + cls;
+  div.innerText = text;
+  document.getElementById("chat").appendChild(div);
+  div.scrollIntoView();
+}
+
+async function sendMsg(){
+  const input = document.getElementById("input");
+  const text = input.value;
+  if(!text) return;
+
+  addMsg(text, "user");
+  input.value = "";
+
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + apiKey
+    },
+    body: JSON.stringify({
+      model: "llama-3.1-8b-instant",
+      messages: [{role:"user", content:text}]
+    })
+  });
+
+  const data = await res.json();
+  const reply = data.choices?.[0]?.message?.content || "Errore";
+
+  addMsg(reply, "bot");
+}
+
+// MICROFONO
+function startMic(){
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SpeechRecognition){
+    alert("Microfono non supportato");
+    return;
+  }
+
+  const recog = new SpeechRecognition();
+  recog.lang = "it-IT";
+
+  recog.onresult = (event) => {
+    const text = event.results[0][0].transcript;
+    document.getElementById("input").value = text;
+  };
+
+  recog.start();
+}
+</script></body>
+</html>
