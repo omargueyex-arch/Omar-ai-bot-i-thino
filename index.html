@@ -1,0 +1,79 @@
+<!DOCTYPE html><html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Chat Groq</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #1e1e2f, #3a3a6a);
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }.container {
+  width: 95%;
+  max-width: 500px;
+  background: #2a2a40;
+  border-radius: 20px;
+  box-shadow: 0 0 20px rgba(0,0,0,0.5);
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  height: 90vh;
+}
+
+h2 {
+  text-align: center;
+}
+
+input {
+  padding: 10px;
+  border-radius: 10px;
+  border: none;
+  margin-bottom: 10px;
+}
+
+button {
+  padding: 10px;
+  border-radius: 10px;
+  border: none;
+  background: #6c5ce7;
+  color: white;
+  cursor: pointer;
+  margin: 5px 0;
+}
+
+.chat {
+  flex: 1;
+  overflow-y: auto;
+  margin: 10px 0;
+}
+
+.msg {
+  padding: 10px;
+  border-radius: 10px;
+  margin: 5px 0;
+}
+
+.user { background: #0984e3; }
+.bot { background: #00b894; }
+
+.row {
+  display: flex;
+  gap: 5px;
+}
+
+.row input {
+  flex: 1;
+}
+
+  </style>
+</head>
+<body><div class="container">
+  <h2>🤖 AI Groq Chat</h2>  <input type="password" id="apiKey" placeholder="Inserisci Groq API Key">
+  <button onclick="saveKey()">Salva Chiave</button>  <div class="chat" id="chat"></div>  <div class="row">
+    <input type="text" id="input" placeholder="Scrivi...">
+    <button onclick="sendMsg()
