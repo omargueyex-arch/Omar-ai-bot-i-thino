@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Groq AI • Chat</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500&amp;display=swap');
+
+        :root {
+            --primary: #00f0ff;
+            --bg: #0a0a1f;
+            --card: #12122b;
+            --text: #f0f0ff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: linear-gradient(135deg, #0a0a1f 0%, #1a1a3a 100%);
+            color: var(--text);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: rgba(18, 18, 43, 0.95);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 20px rgba(0, 240, 255, 0.1);
+            z-index: 10;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 22px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+        }
+
+        .logo-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background: var(--primary);
+            border-radius: 50%;
+            box-shadow: 0 0 15px var(--primary);
+            animation: pulse 2s infinite;
+        }
+
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            color: var(--text);
+            padding: 8px 16px;
+            border-radius: 9999px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn:hover {
+            background: rgba(0, 240, 255, 0.15);
+            border-color: var(--primary);
+            transform: translateY(-1px);
+        }
+
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            scroll-behavior: smooth;
+        }
+
+        .message {
+            display: flex;
+            gap: 12px;
+            max-width: 85%;
+            animation: fadeIn 0.3s ease forwards;
+        }
+
+        .message.user {
+            margin-left: auto;
+            flex-direction: row-reverse;
+        }
+
+        .message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .message.user .message-avatar {
+            background: linear-gradient(135deg, #00b4ff, #0099ff);
+        }
+
+        .message.ai .message-avatar {
+            background: #222244;
+            box-shadow: 0 0 0 3px rgba(0, 240, 255, 0.2);
+        }
+
+        .bubble {
+            padding: 14px 20px;
+            border-radius: 20px;
+            max-width: calc(100% - 50px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+            position: relative;
+        }
+
+        .message.user .bubble {
+            background: linear-gradient(135deg, #00b4ff, #0099ff);
+            border-bottom-right-radius: 4px;
+            color: white;
+        }
+
+        .message.ai .bubble {
+            background: #1f1f38;
+            border-bottom-left-radius: 4px;
+        }
+
+        .message-content {
+            line-height: 1.5;
+            font-size: 16px;
+            white-space: pre-wrap;
+        }
+
+        .typing {
+            display: flex;
+            gap: 4px;
+            padding: 8px 0;
+        }
+
+        .typing-dot {
+            width: 6px;
+            height: 6px;
+            background: #8888aa;
+            border-radius: 50%;
+            animation: typingBounce 1.4s infinite ease-in-out;
+        }
+
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        .input-area {
+            background: rgba(18, 18, 43, 0.95);
+            backdrop-filter: blur(12px);
+            border-top: 1px solid rgba(0, 240, 255, 0.2);
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 -4px 20px rgba(0, 240, 255, 0.1);
+        }
+
+        #message-input {
+            flex: 1;
+            background: #1f1f38;
+            border: 2px solid rgba(0, 240, 255, 0.3);
+            border-radius: 9999px;
+            padding: 14px 24px;
+            font-size: 16px;
+            color: var(--text);
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        #message-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(0, 240, 255, 0.2);
+        }
+
+        .mic-btn {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background: #1f1f38;
+            border: 2px solid rgba(0, 240, 255, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+        }
+
+        .mic-btn.listening {
+            background: #ff0044;
+            border-color: #ff0044;
+            animation: pulseMic 1.5s infinite;
+            box-shadow: 0 0 25px #ff0044;
+        }
+
+        .send-btn {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00f0ff, #0099ff);
+            color: #0a0a1f;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 8px 25px rgba(0, 240, 255, 0.4);
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+        }
+
+        .send-btn:hover {
+            transform: scale(1.08);
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 10, 31, 0.95);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeInModal 0.3s ease;
+        }
+
+        .modal-content {
+            background: #12122b;
+            border-radius: 24px;
+            padding: 32px;
+            width: 90%;
+            max-width: 420px;
+            box-shadow: 0 20px 60px rgba(0, 240, 255, 0.3);
+            text-align: center;
+        }
+
+        .modal-content h2 {
+            font-size: 24px;
+            margin-bottom: 12px;
+            color: var(--primary);
+        }
+
+        .modal-content p {
+            color: #aaaacc;
+            margin-bottom: 24px;
+            font-size: 15px;
+        }
+
+        .modal-input {
+            width: 100%;
+            padding: 16px 20px;
+            background: #1f1f38;
+            border: 2px solid #333355;
+            border-radius: 9999px;
+            color: white;
+            font-size: 16px;
+            margin-bottom: 20px;
+            outline: none;
+        }
+
+        .modal-input:focus {
+            border-color: var(--primary);
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1f1f38;
+            color: white;
+            padding: 14px 24px;
+            border-radius: 9999px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+            display: none;
+            align-items: center;
+            gap: 10px;
+            z-index: 2000;
+            animation: toastPop 0.3s ease;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        @keyframes typingBounce {
+            0%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-6px); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeInModal {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes pulseMic {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+        }
+
+        .scroll-bottom {
+            position: absolute;
+            bottom: 80px;
+            right: 20px;
+            background: rgba(18, 18, 43, 0.9);
+            border: 1px solid var(--primary);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            cursor: pointer;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- HEADER -->
+    <div class="header">
+        <div class="logo">
+            <span class="logo-dot"></span>
+            Groq AI
+        </div>
+        
+        <div class="header-buttons">
+            <button id="clear-btn" class="btn">
+                🗑️ Cancella chat
+            </button>
+            <button id="key-btn" class="btn">
+                🔑 API Key
+            </button>
+        </div>
+    </div>
+
+    <!-- CHAT -->
+    <div id="chat-container" class="chat-container"></div>
+
+    <!-- INPUT -->
+    <div class="input-area">
+        <button id="mic-btn" class="mic-btn" title="Input vocale">
+            🎤
+        </button>
+        
+        <input 
+            id="message-input" 
+            type="text" 
+            placeholder="Scrivi un messaggio o parla..."
+            autocomplete="off">
+        
+        <button id="send-btn" class="send-btn">
+            →
+        </button>
+    </div>
+
+    <!-- MODAL API KEY -->
+    <div id="api-modal" class="modal">
+        <div class="modal-content">
+            <h2>🚀 Configura Groq</h2>
+            <p>Inserisci la tua API Key di Groq per iniziare.<br>
+            <a href="https://console.groq.com/keys" target="_blank" style="color:#00f0ff; text-decoration:underline;">Ottieni la tua key qui →</a></p>
+            
+            <input 
+                id="api-key-input" 
+                type="text" 
+                class="modal-input" 
+                placeholder="gsk_xxxxxxxxxxxxxxxxxxxxxxxx">
+            
+            <button id="save-key-btn" style="width:100%; padding:16px; background:linear-gradient(135deg,#00f0ff,#0099ff); color:#0a0a1f; border:none; border-radius:9999px; font-size:17px; font-weight:600; cursor:pointer;">
+                Salva e inizia a chattare
+            </button>
+            
+            <p style="margin-top:20px; font-size:13px; color:#666688;">
+                La chiave viene salvata solo nel tuo browser (localStorage)
+            </p>
+        </div>
+    </div>
+
+    <!-- TOAST -->
+    <div id="toast" class="toast">
+        <span id="toast-text"></span>
+    </div>
+
+    <script>
+        // ====================== CONFIGURAZIONE ======================
+        const API_URL = "https://api.groq.com/openai/v1/chat/completions";
+        const MODEL = "llama3-70b-8192"; // Modello valido e performante su Groq
+
+        // ====================== VARIABILI GLOBALI ======================
+        let apiKey = localStorage.getItem("groq_api_key") || "";
+        let messages = JSON.parse(localStorage.getItem("groq_chat_history")) || [];
+        let isStreaming = false;
+        let recognition = null;
+
+        // ====================== ELEMENTI DOM ======================
+        const chatContainer = document.getElementById("chat-container");
+        const messageInput = document.getElementById("message-input");
+        const sendBtn = document.getElementById("send-btn");
+        const micBtn = document.getElementById("mic-btn");
+        const clearBtn = document.getElementById("clear-btn");
+        const keyBtn = document.getElementById("key-btn");
+        const apiModal = document.getElementById("api-modal");
+        const apiKeyInput = document.getElementById("api-key-input");
+        const saveKeyBtn = document.getElementById("save-key-btn");
+        const toast = document.getElementById("toast");
+        const toastText = document.getElementById("toast-text");
+
+        // ====================== UTILITIES ======================
+        function saveChat() {
+            localStorage.setItem("groq_chat_history", JSON.stringify(messages));
+        }
+
+        function showToast(msg, duration = 3000) {
+            toastText.textContent = msg;
+            toast.style.display = "flex";
+            setTimeout(() => {
+                toast.style.display = "none";
+            }, duration);
+        }
+
+        function scrollToBottom() {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function formatMessage(content) {
+            return content.replace(/\n/g, '<br>');
+        }
+
+        // Renderizza tutti i messaggi
+        function renderMessages() {
+            chatContainer.innerHTML = "";
+            
+            messages.forEach((msg) => {
+                const messageEl = document.createElement("div");
+                messageEl.className = `message ${msg.role}`;
+                
+                const avatarHTML = msg.role === "user" 
+                    ? `<div class="message-avatar">👤</div>`
+                    : `<div class="message-avatar">🤖</div>`;
+                
+                const bubbleHTML = `
+                    <div class="bubble">
+                        <div class="message-content">${formatMessage(msg.content)}</div>
+                    </div>
+                `;
+                
+                messageEl.innerHTML = msg.role === "user" 
+                    ? bubbleHTML + avatarHTML 
+                    : avatarHTML + bubbleHTML;
+                
+                chatContainer.appendChild(messageEl);
+            });
+            
+            scrollToBottom();
+        }
+
+        // Aggiunge un messaggio utente o assistente (per lo streaming useremo una versione speciale)
+        function addMessage(role, content) {
+            const messageEl = document.createElement("div");
+            messageEl.className = `message ${role}`;
+            
+            const avatarHTML = role === "user" 
+                ? `<div class="message-avatar">👤</div>`
+                : `<div class="message-avatar">🤖</div>`;
+            
+            messageEl.innerHTML = role === "user" 
+                ? `
+                    <div class="bubble">
+                        <div class="message-content">${formatMessage(content)}</div>
+                    </div>
+                    ${avatarHTML}
+                  `
+                : `
+                    ${avatarHTML}
+                    <div class="bubble">
+                        <div id="live-content" class="message-content"></div>
+                    </div>
+                  `;
+            
+            chatContainer.appendChild(messageEl);
+            scrollToBottom();
+            return messageEl;
+        }
+
+        // ====================== API GROQ ======================
+        async function callGroq(messagesHistory) {
+            if (!apiKey) {
+                showToast("⚠️ API Key mancante!", 4000);
+                return null;
+            }
+
+            const response = await fetch(API_URL, {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${apiKey}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    model: MODEL,
+                    messages: messagesHistory,
+                    stream: true,
+                    temperature: 0.75,
+                    max_tokens: 2048
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error?.message || `Errore ${response.status}`);
+            }
+
+            return response;
+        }
+
+        // ====================== STREAMING ======================
+        async function streamResponse(userMessage) {
+            if (isStreaming) return;
+            isStreaming = true;
+
+            // Aggiungiamo il messaggio utente alla storia
+            messages.push({ role: "user", content: userMessage });
+            saveChat();
+            renderMessages(); // refresh con utente
+
+            // Creiamo il contenitore live per la risposta AI
+            const aiMessageEl = addMessage("assistant", "");
+            const liveContent = aiMessageEl.querySelector("#live-content");
+
+            let fullResponse = "";
+
+            try {
+                const apiMessages = messages.map(m => ({
+                    role: m.role,
+                    content: m.content
+                }));
+
+                const response = await callGroq(apiMessages);
+                if (!response) return;
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split("\n");
+
+                    for (const line of lines) {
+                        if (line.startsWith("data: ")) {
+                            const dataStr = line.slice(6);
+                            if (dataStr === "[DONE]") continue;
+
+                            try {
+                                const parsed = JSON.parse(dataStr);
+                                const delta = parsed.choices?.[0]?.delta?.content || "";
+                                if (delta) {
+                                    fullResponse += delta;
+                                    liveContent.innerHTML = formatMessage(fullResponse);
+                                    scrollToBottom();
+                                }
+                            } catch (e) {
+                                // ignora chunk non JSON
+                            }
+                        }
+                    }
+                }
+
+                // Salviamo la risposta completa
+                messages.push({ role: "assistant", content: fullResponse });
+                saveChat();
+
+            } catch (err) {
+                console.error(err);
+                liveContent.innerHTML = `<span style="color:#ff6666;">❌ ${err.message}</span>`;
+                
+                if (err.message.includes("401") || err.message.includes("key")) {
+                    showToast("🔑 API Key non valida o scaduta", 5000);
+                } else if (err.message.includes("Failed to fetch")) {
+                    showToast("🌐 Errore di connessione", 4000);
+                }
+            } finally {
+                isStreaming = false;
+            }
+        }
+
+        // ====================== INVIO MESSAGGIO ======================
+        async function sendMessage() {
+            const text = messageInput.value.trim();
+            if (!text || isStreaming) return;
+
+            messageInput.value = "";
+            await streamResponse(text);
+        }
+
+        // ====================== VOCE (Web Speech API) ======================
+        function initVoiceRecognition() {
